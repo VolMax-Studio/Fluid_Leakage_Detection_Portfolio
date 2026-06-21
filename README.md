@@ -1,5 +1,7 @@
 # Fluid Leakage Detection & Sparse Localization Portfolio (v2)
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20786241.svg)](https://doi.org/10.5281/zenodo.20786241)
+
 An end-to-end, high-fidelity leak detection, isolation, and sparse localization pipeline for Water Distribution Networks (WDNs). This project bridges the "reality gap" by moving from simple synthetic simulations to the international **BattLeDIM L-Town Benchmark** (SCADA sensor network with real-world noise, diurnal demand fluctuations, and multiple gradual/abrupt leak events), alongside a production-ready **C++ firmware implementation** for edge deployment.
 
 ---
@@ -107,6 +109,14 @@ This generates:
 
 ## 📖 Domain Connection & NILM Analogy
 This project applies Non-Intrusive Grid Monitoring principles to hydraulic networks. In electrical networks, NILM (Non-Intrusive Load Monitoring) disaggregates house-level power readings into individual appliance states. In water networks, we use boundary measurements (pressures, flows) and physical/hydraulic sensitivity matrices (the fluid analog of grid impedance matrices) to localize and estimate leakage signatures at unmonitored interior junctions.
+
+---
+
+## 📌 Citation
+If you use this software in your research or portfolio reviews, please cite it as:
+```text
+Nestorov, Ivan. (2026). Fluid Leakage Detection and L1-Regularized Sparse Localization for WDNs (v2.0.0). Zenodo. https://doi.org/10.5281/zenodo.20786241
+```
 
 ---
 
