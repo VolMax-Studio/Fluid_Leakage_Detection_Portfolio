@@ -1,7 +1,11 @@
 __pycache__/
 *.pyc
 .pytest_cache/
-results/*.png
-results/*.txt
 *.mat
-*.csv
+*.bin
+*.inp
+*.rpt
+battledim_data/
+edge/edge_detector
+edge/*.csv
+scratch/

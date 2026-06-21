@@ -1,0 +1,43 @@
+========================================================
+  FLUID LEAKAGE DETECTION — PERFORMANCE REPORT (SYNTHETIC — CONSECUTIVE + LASSO)
+========================================================
+
+DATA SOURCE: Synthetic benchmark dataset
+Alarm Method: CONSECUTIVE
+Localization Method: LASSO
+Pressure Sensors: 6
+
+DETECTION METRICS (RF Baseline Residual Method)
+----------------------------------------
+  Precision:          1.000
+  Recall:             0.500
+  F1-score:           0.667
+  Mean TTD (hours):   7.5 hours
+  Total alarms fired: 3
+  True positives:     1
+  False positives:    0
+  Ground truth events:2
+
+LOCALIZATION RESULTS (Sensitivity Matrix Method)
+----------------------------------------
+  Event: N6 (burst, 2.50 L/s)
+    Top-1 correct:  True
+    Top-3 correct:  True
+    Rank of true:   1
+    Hop distance:   0
+  Event: N11 (gradual, 0.35 L/s)
+    Top-1 correct:  False
+    Top-3 correct:  False
+    Rank of true:   None
+    Hop distance:   5
+
+METHODOLOGY NOTES
+----------------------------------------
+  Detection: Random Forest regressor trained on first 40%
+  of data (assumed leak-free). Alarm = residual < -2.5σ
+  for ≥4 consecutive steps.
+
+  Localization: Linearized hydraulic sensitivity matrix
+  S[i,j] = ΔP_sensor_i / Δq_leak_j (numerical Jacobian).
+  Weighted LS fit ranks candidate leak nodes.
+=

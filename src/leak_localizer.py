@@ -54,10 +54,12 @@ class LeakLocalizer:
         sensitivity_matrix: np.ndarray,
         sensor_ids: List[str],
         node_ids: List[str],
+        lasso_alpha: float = 0.01,
     ):
         self.S = sensitivity_matrix
         self.sensor_ids = sensor_ids
         self.node_ids = node_ids
+        self.lasso_alpha = lasso_alpha
         self._n_sensors, self._n_nodes = self.S.shape
 
         # Precompute column norms for efficiency
@@ -67,6 +69,7 @@ class LeakLocalizer:
         self,
         residuals_per_sensor: Dict[str, float],
         top_k: int = 5,
+        method: str = "wls",
     ) -> List[dict]:
         """
         Rank candidate leak nodes given a snapshot of pressure residuals.
@@ -77,6 +80,8 @@ class LeakLocalizer:
             Typically the median residual over a detected leak window.
         top_k : int
             Number of top candidates to return. Default: 5.
+        method : str
+            Localization method. Choices: "wls" or "lasso".
 
         Returns
         -------
@@ -94,43 +99,80 @@ class LeakLocalizer:
             for sid in self.sensor_ids
         ])
 
-        scores = []
-        for j, node_id in enumerate(self.node_ids):
-            s_j = self.S[:, j]  # sensitivity column for node j
-            norm_j = self._col_norms[j]
+        if method == "lasso":
+            from sklearn.linear_model import Lasso
+            # S is naturally negative, residuals are negative. We solve NN-Lasso using positive features/targets.
+            X = -self.S
+            y = -r
+            lasso = Lasso(alpha=self.lasso_alpha, positive=True, fit_intercept=False, max_iter=5000)
+            lasso.fit(X, y)
+            q_lasso = lasso.coef_
 
-            if norm_j < 1e-9:
-                # Node has negligible pressure influence — not observable
+            # Also calculate WLS scores for ranking zero-coefficient nodes
+            wls_scores = []
+            for j, node_id in enumerate(self.node_ids):
+                s_j = self.S[:, j]
+                norm_j = self._col_norms[j]
+                if norm_j < 1e-9:
+                    wls_scores.append((node_id, 0.0, 0.0))
+                    continue
+                q_wls = float(np.dot(s_j, r) / (norm_j ** 2))
+                r_pred = s_j * q_wls
+                ss_res = np.sum((r - r_pred) ** 2)
+                ss_tot = np.sum(r ** 2)
+                r2 = 1.0 - ss_res / max(ss_tot, 1e-12)
+                score = max(r2, 0.0) if q_wls > 0 else 0.0
+                wls_scores.append((node_id, q_wls, score))
+
+            scores = []
+            for j, node_id in enumerate(self.node_ids):
+                q_l = float(q_lasso[j])
+                q_w, w_score = wls_scores[j][1], wls_scores[j][2]
+                
+                # Lasso coefficients dictate the ranking.
+                # Nodes with non-zero Lasso coefficients sort first.
+                if q_l > 0:
+                    composite = q_l
+                else:
+                    composite = 1e-9 * w_score
+
                 scores.append({
                     'node': node_id,
-                    'estimated_leak_flow_ls': 0.0,
-                    'score': 0.0,
+                    'estimated_leak_flow_ls': q_l if q_l > 0 else q_w,
+                    # For metrics/plotting, report original WLS fit quality score (or scaled down if zero-lasso)
+                    'score': float(w_score) if q_l > 0 else float(w_score * 0.1),
+                    'composite_score': composite,
                 })
-                continue
+            scores.sort(key=lambda x: -x['composite_score'])
+        else:
+            # Traditional WLS
+            scores = []
+            for j, node_id in enumerate(self.node_ids):
+                s_j = self.S[:, j]
+                norm_j = self._col_norms[j]
 
-            # LS estimate of leak flow at node j
-            q_hat = float(np.dot(s_j, r) / (norm_j ** 2))
+                if norm_j < 1e-9:
+                    scores.append({
+                        'node': node_id,
+                        'estimated_leak_flow_ls': 0.0,
+                        'score': 0.0,
+                    })
+                    continue
 
-            # Predicted residuals if leak is at j with flow q_hat
-            r_pred = s_j * q_hat
+                q_hat = float(np.dot(s_j, r) / (norm_j ** 2))
+                r_pred = s_j * q_hat
+                ss_res = np.sum((r - r_pred) ** 2)
+                ss_tot = np.sum(r ** 2)
+                r2 = 1.0 - ss_res / max(ss_tot, 1e-12)
+                score = max(r2, 0.0) if q_hat > 0 else 0.0
 
-            # Score: coefficient of determination (1 - normalized residual error)
-            ss_res = np.sum((r - r_pred) ** 2)
-            ss_tot = np.sum(r ** 2)
-            r2 = 1.0 - ss_res / max(ss_tot, 1e-12)
+                scores.append({
+                    'node': node_id,
+                    'estimated_leak_flow_ls': max(q_hat, 0.0),
+                    'score': float(score),
+                })
+            scores.sort(key=lambda x: -x['score'])
 
-            # Only positive leak flow is physically meaningful
-            # (negative q_hat means node j cannot explain the observed drop)
-            score = max(r2, 0.0) if q_hat > 0 else 0.0
-
-            scores.append({
-                'node': node_id,
-                'estimated_leak_flow_ls': max(q_hat, 0.0),
-                'score': float(score),
-            })
-
-        # Sort by score descending
-        scores.sort(key=lambda x: -x['score'])
         for rank, s in enumerate(scores[:top_k]):
             s['rank'] = rank + 1
 
@@ -143,6 +185,7 @@ class LeakLocalizer:
         alarm_start_h: float,
         window_hours: float = 24.0,
         top_k: int = 5,
+        method: str = "wls",
     ) -> List[dict]:
         """
         Aggregate residuals over a time window following alarm onset and localize.
@@ -158,6 +201,8 @@ class LeakLocalizer:
         window_hours : float
             Analysis window duration [hours]. Default: 24.
         top_k : int
+        method : str
+            Localization method. Choices: "wls" or "lasso".
 
         Returns
         -------
@@ -174,12 +219,12 @@ class LeakLocalizer:
             valid = window_vals[~np.isnan(window_vals)]
             median_residuals[sid] = float(np.median(valid)) if len(valid) > 0 else 0.0
 
-        return self.localize(median_residuals, top_k=top_k)
+        return self.localize(median_residuals, top_k=top_k, method=method)
 
     @staticmethod
     def localization_accuracy(
         candidates: List[dict],
-        true_node: str,
+        true_node: str | List[str],
         node_ids: List[str],
         adjacency: Optional[Dict[str, List[str]]] = None,
     ) -> dict:
@@ -189,7 +234,9 @@ class LeakLocalizer:
         Parameters
         ----------
         candidates : list of ranked candidate dicts
-        true_node : str
+        true_node : str or list of str
+            True node(s) representing the leak source. If a pipe is leaking,
+            this can be a list containing its start and end nodes.
         node_ids : list of str
         adjacency : dict {node_id: [neighbor_ids]}, optional
             Network adjacency for hop-distance computation.
@@ -202,16 +249,30 @@ class LeakLocalizer:
             'rank_of_true': int or None,
             'hop_distance': int or None (requires adjacency)
         """
-        node_ranks = {c['node']: c['rank'] for c in candidates}
-        rank_of_true = node_ranks.get(true_node, None)
+        if isinstance(true_node, str):
+            true_nodes = [true_node.lower()]
+        else:
+            true_nodes = [tn.lower() for tn in true_node]
 
-        top1 = candidates[0]['node'] == true_node if candidates else False
-        top3 = true_node in [c['node'] for c in candidates[:3]] if candidates else False
+        node_ranks = {c['node'].lower(): c['rank'] for c in candidates}
+        
+        ranks = [node_ranks[tn] for tn in true_nodes if tn in node_ranks]
+        rank_of_true = min(ranks) if ranks else None
+
+        top1 = candidates[0]['node'].lower() in true_nodes if candidates else False
+        top3 = any(c['node'].lower() in true_nodes for c in candidates[:3]) if candidates else False
 
         hop_dist = None
         if adjacency is not None and candidates:
-            best_guess = candidates[0]['node']
-            hop_dist = _bfs_hop_distance(best_guess, true_node, adjacency)
+            best_guess = candidates[0]['node'].lower()
+            # case-insensitive adjacency dict
+            adj_lower = {k.lower(): [v.lower() for v in neighbors] for k, neighbors in adjacency.items()}
+            dists = []
+            for tn in true_nodes:
+                d = _bfs_hop_distance(best_guess, tn, adj_lower)
+                if d is not None:
+                    dists.append(d)
+            hop_dist = min(dists) if dists else None
 
         return {
             'top1_correct': top1,

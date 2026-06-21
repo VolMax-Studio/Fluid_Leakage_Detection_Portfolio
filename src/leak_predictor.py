@@ -99,6 +99,9 @@ class LeakPredictor:
         alarm_consecutive_steps: int = 4,
         lag: int = 2,
         random_state: int = 42,
+        detector_type: str = "consecutive",
+        cusum_drift: float = 0.2,
+        cusum_threshold: Optional[float] = None,
     ):
         """
         Parameters
@@ -106,17 +109,27 @@ class LeakPredictor:
         n_estimators : int
             RF trees. 100 is sufficient for this feature dimensionality.
         alarm_sigma_multiplier : float
-            Alarm threshold = -k * residual_std from training data.
-            k=2.5 gives ~1% false alarm rate for Gaussian residuals.
+            Alarm threshold = -k * residual_std from training data (for consecutive detector).
         alarm_consecutive_steps : int
             Number of consecutive threshold exceedances required to trigger
             a formal alarm (reduces false positives from noise spikes).
         lag : int
             Number of lagged inlet-flow features.
+        detector_type : str
+            Alarm detection method. Choices: "consecutive" or "cusum".
+        cusum_drift : float
+            CUSUM drift/allowance parameter (k) in standard deviations.
+        cusum_threshold : float, optional
+            CUSUM alarm threshold (H) in standard deviations. If None, it is
+            auto-tuned on the training (leak-free) period to prevent false alarms.
         """
         self.k = alarm_sigma_multiplier
         self.n_consec = alarm_consecutive_steps
         self.lag = lag
+        self.detector_type = detector_type
+        self.cusum_drift = cusum_drift
+        self.cusum_threshold = cusum_threshold
+        self.cusum_thresholds: Dict[str, float] = {}
         self.models: Dict[str, RandomForestRegressor] = {}
         self.scalers: Dict[str, StandardScaler] = {}
         self.residual_std: Dict[str, float] = {}
@@ -146,8 +159,17 @@ class LeakPredictor:
         T_train = int(T * training_fraction)
         self.sensor_ids = list(pressures.keys())
 
-        inlet_flow    = flows.get("N1", np.zeros(T))
-        pressure_N1   = pressures.get("N1", np.zeros(T))
+        # Retrieve inlet flow dynamically (sum of flows if multiple, or N1/n1)
+        inlet_flow = flows.get("N1", flows.get("n1", None))
+        if inlet_flow is None:
+            if len(flows) > 0:
+                inlet_flow = sum(flows.values())
+            else:
+                inlet_flow = np.zeros(T)
+                
+        # Retrieve inlet pressure dynamically (N1/n1)
+        pressure_N1 = pressures.get("N1", pressures.get("n1", np.zeros(T)))
+        
         lag = self.lag
 
         X_train = _build_features(
@@ -177,7 +199,26 @@ class LeakPredictor:
             # Compute in-sample residual std (baseline noise floor)
             y_pred_train = model.predict(X_scaled)
             residuals_train = y_train - y_pred_train
-            self.residual_std[sensor_id] = float(np.std(residuals_train))
+            sigma = float(np.std(residuals_train))
+            self.residual_std[sensor_id] = sigma
+
+            # If CUSUM is selected, auto-tune the threshold (H) on the training set
+            if self.detector_type == "cusum":
+                # Standardize training residuals
+                z_train = residuals_train / (sigma if sigma > 1e-6 else 1.0)
+                S_train = 0.0
+                max_S_train = 0.0
+                for val in z_train:
+                    # We subtract val because negative residuals (pressure drop) increase the sum
+                    S_train = max(0.0, S_train - val - self.cusum_drift)
+                    if S_train > max_S_train:
+                        max_S_train = S_train
+                
+                if self.cusum_threshold is not None:
+                    self.cusum_thresholds[sensor_id] = self.cusum_threshold
+                else:
+                    # Auto-tune: peak training value + safety margin of 5.0 standard deviations
+                    self.cusum_thresholds[sensor_id] = max_S_train + 5.0
 
             self.models[sensor_id] = model
             self.scalers[sensor_id] = scaler
@@ -208,8 +249,17 @@ class LeakPredictor:
 
         T = len(timestamps_h)
         lag = self.lag
-        inlet_flow  = flows.get("N1", np.zeros(T))
-        pressure_N1 = pressures.get("N1", np.zeros(T))
+        
+        # Retrieve inlet flow dynamically
+        inlet_flow = flows.get("N1", flows.get("n1", None))
+        if inlet_flow is None:
+            if len(flows) > 0:
+                inlet_flow = sum(flows.values())
+            else:
+                inlet_flow = np.zeros(T)
+                
+        # Retrieve inlet pressure dynamically
+        pressure_N1 = pressures.get("N1", pressures.get("n1", np.zeros(T)))
 
         X_full = _build_features(timestamps_h, inlet_flow, pressure_N1, lag=lag)
 
@@ -226,21 +276,33 @@ class LeakPredictor:
             y_meas = pressures[sensor_id][lag:]
             residuals = y_meas - y_pred
 
-            # Alarm: residual < -k*sigma for n_consec consecutive timesteps
+            # Alarm: residual < -k*sigma for n_consec consecutive timesteps, or CUSUM
             neg_threshold = -self.k * sigma
-            below = (residuals < neg_threshold).astype(int)
-
             alarm_mask = np.zeros(len(residuals), dtype=bool)
-            consec = 0
-            for i in range(len(below)):
-                if below[i]:
-                    consec += 1
-                    if consec >= self.n_consec:
-                        alarm_mask[i] = True
-                else:
-                    consec = 0
 
-            first_alarm_idx = np.argmax(alarm_mask) if alarm_mask.any() else None
+            if self.detector_type == "cusum":
+                # CUSUM sequential alarm logic
+                z = residuals / (sigma if sigma > 1e-6 else 1.0)
+                H = self.cusum_thresholds[sensor_id]
+                S = 0.0
+                for i in range(len(z)):
+                    S = max(0.0, S - z[i] - self.cusum_drift)
+                    if S > H:
+                        alarm_mask[i] = True
+                first_alarm_idx = np.argmax(alarm_mask) if alarm_mask.any() else None
+            else:
+                # Consecutive exceedance logic
+                below = (residuals < neg_threshold).astype(int)
+                consec = 0
+                for i in range(len(below)):
+                    if below[i]:
+                        consec += 1
+                        if consec >= self.n_consec:
+                            alarm_mask[i] = True
+                    else:
+                        consec = 0
+                first_alarm_idx = np.argmax(alarm_mask) if alarm_mask.any() else None
+
             first_alarm_h = (
                 float(timestamps_h[lag + first_alarm_idx])
                 if first_alarm_idx is not None else None
@@ -257,7 +319,7 @@ class LeakPredictor:
             results[sensor_id] = {
                 'predicted': y_pred_full,
                 'residuals': residuals_full,
-                'threshold': float(neg_threshold),
+                'threshold': float(-H * sigma) if self.detector_type == "cusum" else float(neg_threshold),
                 'alarm_mask': alarm_full,
                 'first_alarm_h': first_alarm_h,
             }

@@ -1,0 +1,68 @@
+========================================================
+  FLUID LEAKAGE DETECTION — PERFORMANCE REPORT (REAL — CUSUM + LASSO)
+========================================================
+
+DATA SOURCE: Real benchmark dataset
+Alarm Method: CUSUM
+Localization Method: LASSO
+Pressure Sensors: 33
+
+DETECTION METRICS (RF Baseline Residual Method)
+----------------------------------------
+  Precision:          0.227
+  Recall:             0.357
+  F1-score:           0.278
+  Mean TTD (hours):   20.6 hours
+  Total alarms fired: 27
+  True positives:     5
+  False positives:    17
+  Ground truth events:14
+
+LOCALIZATION RESULTS (Sensitivity Matrix Method)
+----------------------------------------
+  Event: p31 (gradual, 16.21 L/s)
+    Top-1 correct:  False
+    Top-3 correct:  False
+    Rank of true:   None
+    Hop distance:   None
+  Event: p158 (gradual, 24.76 L/s)
+    Top-1 correct:  False
+    Top-3 correct:  False
+    Rank of true:   None
+    Hop distance:   21
+  Event: p183 (gradual, 16.46 L/s)
+    Top-1 correct:  False
+    Top-3 correct:  False
+    Rank of true:   None
+    Hop distance:   2
+  Event: p369 (gradual, 21.05 L/s)
+    Top-1 correct:  False
+    Top-3 correct:  False
+    Rank of true:   None
+    Hop distance:   8
+  Event: p654 (gradual, 5.49 L/s)
+    Top-1 correct:  False
+    Top-3 correct:  False
+    Rank of true:   None
+    Hop distance:   43
+  Event: p810 (gradual, 6.91 L/s)
+    Top-1 correct:  False
+    Top-3 correct:  False
+    Rank of true:   None
+    Hop distance:   None
+  Event: p866 (gradual, 20.57 L/s)
+    Top-1 correct:  False
+    Top-3 correct:  False
+    Rank of true:   None
+    Hop distance:   56
+
+METHODOLOGY NOTES
+----------------------------------------
+  Detection: Random Forest regressor trained on first 40%
+  of data (assumed leak-free). Alarm = residual < -2.5σ
+  for ≥4 consecutive steps.
+
+  Localization: Linearized hydraulic sensitivity matrix
+  S[i,j] = ΔP_sensor_i / Δq_leak_j (numerical Jacobian).
+  Weighted LS fit ranks candidate leak nodes.
+=
