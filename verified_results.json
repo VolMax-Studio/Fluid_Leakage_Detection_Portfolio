@@ -65,6 +65,6 @@
   },
   "conclusions": {
     "detection_improvement": "CUSUM sequential detection (drift=0.5) significantly improved leak detection recall and precision by accumulating persistent small deviations from RF prediction baseline, tripling F1-score from 0.095 to 0.28.",
-    "localization_improvement": "L1-regularized sparse localization (Lasso with alpha=1e-4) resolved the underdetermined nature of the WDN sensor network, yielding a dramatic drop in hop distance for leak p183 from 57 hops (WLS) to 2 hops (Lasso) and successfully identifying valid connected paths for previously disconnected guesses."
+    "localization_improvement": "L1-regularized sparse localization (Lasso with alpha=1e-4) dramatically improves accuracy in hydraulically observable areas (p183 hop distance drops from 57 to 2), though the localization problem remains challenging overall (median ~14 hops) due to sparse sensor coverage (33 sensors vs 782 junctions)."
   }
 }

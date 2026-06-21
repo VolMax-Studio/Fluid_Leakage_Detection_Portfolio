@@ -7,7 +7,7 @@ An end-to-end, high-fidelity leak detection, isolation, and sparse localization 
 ## 🚀 Key Achievements in v2
 - **Real Benchmark Validation**: Evaluated against the 2018 L-Town dataset (Zenodo/BattLeDIM) featuring 33 pressure sensors, 3 DMA flow inlets, and 14 historical leaks.
 - **Triple Detection Performance**: Implemented a **CUSUM (Page-Hinkley)** change-point detector on Random Forest regression residuals. Auto-tuned on leak-free training periods, CUSUM tripled the F1-score (from **0.095 to 0.28**) and dramatically increased Recall (from **0.14 to 0.36**) compared to the consecutive exceedance baseline.
-- **L1-Regularized Sparse Localization (Lasso)**: Addressed the highly underdetermined nature of localized WDN detection (33 sensors vs. 782 junctions) by formulating spatial localization as a sparse recovery problem. Our Non-Negative Lasso solver reduced the localization hop distance of event `p183` **from 57 hops (WLS) down to 2 hops (Lasso)**.
+- **L1-Regularized Sparse Localization (Lasso)**: Addressed the highly underdetermined nature of localized WDN detection (33 sensors vs. 782 junctions) by formulating spatial localization as a sparse recovery problem. While localization remains highly challenging overall (median ~14 hops, with `p654` at 43 hops due to low hydraulic observability), Lasso dramatically improves accuracy where a leak is close to sensor coverage, e.g., reducing the hop distance of event `p183` **from 57 hops (WLS) down to 2 hops (Lasso)**.
 - **Embedded C++ Firmware Port**: Built a zero-allocation, O(1) memory complexity **DwtCusumEngine** in C++11, enabling real-time transient and gradual leak detection directly on low-power microcontrollers (e.g., ESP32, STM32).
 
 ---
@@ -27,7 +27,7 @@ graph TD
 ```
 
 ### 1. DWT Burst Transient Detection (`src/dwt_detector.py`)
-Discrete Wavelet Transform (DWT Haar/db4) detail coefficients isolate high-frequency acoustic wave reflections and sharp pressure steps characteristic of sudden pipe ruptures. The threshold is adaptively set using a robust MAD (Median Absolute Deviation) estimator:
+Discrete Wavelet Transform detail coefficients isolate high-frequency acoustic wave reflections and sharp pressure steps characteristic of sudden pipe ruptures. The Python pipeline uses a `db4` wavelet at level 3, while the C++ edge code uses a lightweight `Haar` wavelet at level 1 to run efficiently on resource-constrained microcontrollers. The threshold is adaptively set using a robust MAD (Median Absolute Deviation) estimator:
 $$\text{Threshold} = 3.5 \times \frac{\text{MAD}}{0.6745}$$
 
 ### 2. Machine Learning Baseline & CUSUM Sequential Detection (`src/leak_predictor.py`)
@@ -39,6 +39,8 @@ where $z_t$ is the standardized residual, $k$ is the drift parameter (optimized 
 Rather than running independent fits per node, localization solves a sparse recovery problem across all 782 network junctions using the linearized hydraulic sensitivity matrix $S$:
 $$\min_{\mathbf{q} \ge 0} \frac{1}{2} \|\mathbf{r} - \mathbf{S}\mathbf{q}\|_2^2 + \alpha \|\mathbf{q}\|_1$$
 where $\mathbf{r}$ is the sensor pressure residual vector, $\mathbf{S}_{33 \times 782}$ is the sensitivity matrix, and $\mathbf{q} \ge 0$ is the sparse vector of estimated junction leak flows.
+
+*Note: Sparse recovery is not a universal fix. While it provides a dramatic improvement for leaks located in well-instrumented areas (e.g., `p183` drops from 57 to 2 hops), its performance is highly sensitive to hydraulic observability and sensor density, leaving poorly instrumented areas with large errors (e.g., `p654` at 43 hops, and a median error of ~14 hops across all events).*
 
 ---
 
