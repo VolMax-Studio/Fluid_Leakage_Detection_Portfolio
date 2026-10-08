@@ -1,0 +1,25 @@
+{
+  "baseline_commit": "41a2daefb932e7775f5c3d46ce7fcde4cea215ad",
+  "baseline_tree": "2f4bbd3af3ca573d463b76a3086f532703b53a22",
+  "behavior": {
+    "callbacks": false,
+    "executable": false,
+    "network_calls": false,
+    "telemetry": false
+  },
+  "canonical_url": "https://github.com/VolMax-Studio/Fluid_Leakage_Detection_Portfolio",
+  "default_branch_at_recording": "main",
+  "license": {
+    "detected_spdx": null,
+    "files": [],
+    "note": "This provenance record does not grant or alter license rights."
+  },
+  "owner": "VolMax-Studio",
+  "record_id": "urn:volmax:github:VolMax-Studio/Fluid_Leakage_Detection_Portfolio:41a2daefb932e7775f5c3d46ce7fcde4cea215ad",
+  "record_type": "volmax.repository-provenance",
+  "record_version": 1,
+  "recorded_at": "2026-10-08T19:30:31+00:00",
+  "repository": "VolMax-Studio/Fluid_Leakage_Detection_Portfolio",
+  "schema": "urn:volmax:provenance:v1",
+  "scope": "Repository identity and baseline commit only; historical tags, releases, evidence, authorship, and existing file bytes are unchanged."
+}
