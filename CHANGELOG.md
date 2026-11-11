@@ -13,7 +13,7 @@ This release corrects the *public interpretation and documentation* of v2.0.0. I
 - Replaces unsupported `real-world` and `production-ready` claims; adds `LICENSE`, `pandas` and `wntr` requirements, and clarifying code comments.
 - Adds an audit notice without changing the original published numerical result fields, algorithms, or historical figures.
 
-**Verification:** 12/12 existing Python tests pass; C++ builds and replays 35,038 steps (17 CUSUM alarms, 134 Haar detail alarms); the audit reproduction exactly matches the frozen textual output (64/64 lines). These tests do not validate field performance.
+**Verification:** 12/12 existing Python tests pass; C++ builds and replays 35,038 steps (17 CUSUM alarms, 134 Haar detail alarms); the original v2.0.1 audit reproduction matched its frozen textual output (64/64 lines); the subsequent inflow erratum adds one diagnostic line, while the archived v2.0.1 output stays untouched. These tests do not validate field performance.
 
 **Archive policy:** v2.0.0 ([10.5281/zenodo.20786241](https://doi.org/10.5281/zenodo.20786241)) remains immutable. v2.0.1 is intended as the next linked Zenodo version; its version-specific DOI must be confirmed from Zenodo and must not be invented.
 
