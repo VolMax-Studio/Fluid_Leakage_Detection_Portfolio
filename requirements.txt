@@ -4,3 +4,5 @@ scikit-learn>=1.2
 matplotlib>=3.6
 PyWavelets>=1.4
 pytest>=7.0
+pandas>=2.0
+wntr>=1.0   # only needed for --mode real (L-Town adjacency) and src/compute_sensitivity.py

@@ -1,4 +1,5 @@
 {
+  "audit_notice": "These are the v2.0.0 figures as printed by the repository evaluator. A November 2026 self-audit (AUDIT_2026-11.md) rates them Not Demonstrated as performance measures; the 'conclusions' below are superseded by that audit. Hop distances for p31, p654 (WLS), p810 and p866 are missing from this file.",
   "benchmark": "BattLeDIM L-Town 2018 SCADA",
   "configurations": {
     "v1_baseline": {
