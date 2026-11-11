@@ -1,0 +1,65 @@
+== A. TRAINING CONTAMINATION ==
+5min rows 105120 train rows 42048 boundary 2018-05-27 00:00:00
+leak-active in train: 39738 / 42048 = 94.51%
+leak-active in rest : 100.00%
+  p257  2018-01-09 00:30:00 -> 2018-12-31 23:55:00  loader_type=gradual peak=6.87  PRE-BOUNDARY
+  p461  2018-01-23 23:55:00 -> 2018-04-02 11:45:00  loader_type=gradual peak=30.54  PRE-BOUNDARY
+  p232  2018-01-31 03:45:00 -> 2018-02-10 09:25:00  loader_type=gradual peak=26.10  PRE-BOUNDARY
+  p427  2018-02-16 04:15:00 -> 2018-12-31 23:55:00  loader_type=gradual peak=5.11  PRE-BOUNDARY
+  p673  2018-03-05 15:45:00 -> 2018-03-23 10:30:00  loader_type=gradual peak=28.42  PRE-BOUNDARY
+  p628  2018-05-02 18:50:00 -> 2018-05-29 21:25:00  loader_type=gradual peak=35.38  PRE-BOUNDARY
+  p538  2018-05-18 08:35:00 -> 2018-06-02 06:10:00  loader_type=gradual peak=32.84  PRE-BOUNDARY
+  p866  2018-06-01 09:05:00 -> 2018-06-12 03:05:00  loader_type=gradual peak=20.57  post
+  p31   2018-06-29 01:35:00 -> 2018-08-12 17:35:00  loader_type=gradual peak=16.21  post
+  p654  2018-07-07 09:10:00 -> 2018-12-31 23:55:00  loader_type=gradual peak=5.49  post
+  p810  2018-07-30 18:40:00 -> 2018-12-31 23:55:00  loader_type=gradual peak=6.91  post
+  p183  2018-08-07 02:35:00 -> 2018-09-01 17:15:00  loader_type=gradual peak=16.46  post
+  p158  2018-10-06 02:35:00 -> 2018-10-23 13:40:00  loader_type=gradual peak=24.76  post
+  p369  2018-10-26 02:05:00 -> 2018-11-08 20:30:00  loader_type=gradual peak=21.05  post
+total leak flow (csv units): mean train 23.34 | mean rest 26.98 | max 80.04
+sum of 3 flow sensors (csv units): mean 228.54  -> leak share of inflow in train 10.9%
+true inflow p227+p235 (csv units): mean 201.70  -> leak share of inflow in train 12.3% | whole year 12.7%
+
+== B. REPRODUCE PUBLISHED METRICS (15min) ==
+consecutive {'precision': 0.071, 'recall': 0.143, 'f1': 0.095, 'mean_ttd_hours': 3.083, 'n_alarms': 33, 'true_positives': 2, 'false_positives': 26, 'n_ground_truth_events': 14}
+cusum {'precision': 0.227, 'recall': 0.357, 'f1': 0.278, 'mean_ttd_hours': 20.583, 'n_alarms': 27, 'true_positives': 5, 'false_positives': 17, 'n_ground_truth_events': 14}
+
+== C. DECOMPOSE CUSUM SCORE ==
+train boundary h=3504.00 ; events with start+48h < boundary (undetectable by construction under CUSUM): ['p232', 'p257', 'p427', 'p461', 'p538', 'p628', 'p673']
+  event p810 matched by 1 sensors; delays h: [31.3]
+  event p369 matched by 1 sensors; delays h: [21.2]
+  event p866 matched by 6 sensors; delays h: [6.4, 13.9, 14.2, 34.2, 35.9, 41.2]
+  event p158 matched by 1 sensors; delays h: [5.2]
+  event p654 matched by 1 sensors; delays h: [38.8]
+  unmatched first alarms: 17 [3510.0, 3510.0, 3510.2, 3510.2, 3510.2, 3510.5, 3510.5, 3510.5, 3511.5, 3515.8, 3540.8, 3564.8, 3593.8, 3684.5, 3691.2, 3898.8, 5319.0]
+  first alarms inside training period: 0
+  per-sensor alarm duty cycle after training: median 3.3% max 97.4% ; sensors >50%: 10
+  per-sensor rising edges (alarm episodes) whole year: total 45, median 1, max 11
+  network-level (any sensor) alarm on 99.9% of post-training time; network episodes: 1
+
+== D. EPISODE-LEVEL RESCORE (exploratory, post-hoc) ==
+  network episodes: {'events': 7, 'detected': [], 'fp_episodes': 1, 'tp_episodes': 0, 'chance_hit_per_48h_window': 0.001}
+  all per-sensor episodes: {'events': 7, 'detected': ['p158', 'p369', 'p654', 'p810', 'p866'], 'fp_episodes': 32, 'tp_episodes': 13, 'chance_hit_per_48h_window': 0.182}
+  first-alarm-per-sensor (as published): {'events': 7, 'detected': ['p158', 'p369', 'p654', 'p810', 'p866'], 'fp_episodes': 17, 'tp_episodes': 10, 'chance_hit_per_48h_window': 0.092}
+
+== E. LOCALIZATION ==
+pipe-only graph components: 5 sizes [657, 93, 31, 2, 2]
+  wls   p31   alarm_h-start=  0.17h alarm_already_on_before_leak=True guess=n746 hop(pipes)=None hop(pipes+valves+pumps)=55 same_pipe_component=False
+  wls   p158  alarm_h-start=  0.17h alarm_already_on_before_leak=True guess=n753 hop(pipes)=22 hop(pipes+valves+pumps)=22 same_pipe_component=True
+  wls   p183  alarm_h-start=  0.17h alarm_already_on_before_leak=True guess=n111 hop(pipes)=57 hop(pipes+valves+pumps)=57 same_pipe_component=True
+  wls   p369  alarm_h-start=  0.17h alarm_already_on_before_leak=True guess=n410 hop(pipes)=8 hop(pipes+valves+pumps)=8 same_pipe_component=True
+  wls   p654  alarm_h-start=  0.08h alarm_already_on_before_leak=True guess=n303 hop(pipes)=None hop(pipes+valves+pumps)=39 same_pipe_component=False
+  wls   p810  alarm_h-start=  0.08h alarm_already_on_before_leak=True guess=n31 hop(pipes)=None hop(pipes+valves+pumps)=57 same_pipe_component=False
+  wls   p866  alarm_h-start=  0.17h alarm_already_on_before_leak=True guess=n111 hop(pipes)=56 hop(pipes+valves+pumps)=56 same_pipe_component=True
+  lasso p31   alarm_h-start=  0.17h alarm_already_on_before_leak=True guess=n722 hop(pipes)=None hop(pipes+valves+pumps)=56 same_pipe_component=False
+  lasso p158  alarm_h-start=  0.17h alarm_already_on_before_leak=True guess=n752 hop(pipes)=21 hop(pipes+valves+pumps)=21 same_pipe_component=True
+  lasso p183  alarm_h-start=  0.17h alarm_already_on_before_leak=True guess=n752 hop(pipes)=2 hop(pipes+valves+pumps)=2 same_pipe_component=True
+  lasso p369  alarm_h-start=  0.17h alarm_already_on_before_leak=True guess=n410 hop(pipes)=8 hop(pipes+valves+pumps)=8 same_pipe_component=True
+  lasso p654  alarm_h-start=  0.08h alarm_already_on_before_leak=True guess=n752 hop(pipes)=43 hop(pipes+valves+pumps)=43 same_pipe_component=True
+  lasso p810  alarm_h-start=  0.08h alarm_already_on_before_leak=True guess=n31 hop(pipes)=None hop(pipes+valves+pumps)=57 same_pipe_component=False
+  lasso p866  alarm_h-start=  0.17h alarm_already_on_before_leak=True guess=n111 hop(pipes)=56 hop(pipes+valves+pumps)=56 same_pipe_component=True
+
+== F. OFFICIAL SETUP: fit 2018 (100%), score 2019 (exploratory) ==
+2019 leaks: 23 | published-style evaluator: {'precision': 0.0, 'recall': 0.0, 'f1': 0.0, 'mean_ttd_hours': nan, 'n_alarms': 24, 'true_positives': 0, 'false_positives': 24, 'n_ground_truth_events': 23}
+2019 network alarm on 92.4% of year; episodes 1; rescore: {'events': 23, 'detected': [], 'fp_episodes': 1, 'tp_episodes': 0, 'chance_hit_per_48h_window': 0.006}
+DONE

@@ -42,6 +42,9 @@ tot = raw.iloc[:, 1:].apply(pd.to_numeric, errors="coerce").sum(axis=1).to_numpy
 print("total leak flow (csv units): mean train %.2f | mean rest %.2f | max %.2f" % (tot[:nt].mean(), tot[nt:].mean(), tot.max()))
 fl = d5.flows.sum(axis=1).to_numpy()
 print("sum of 3 flow sensors (csv units): mean %.2f  -> leak share of inflow in train %.1f%%" % (fl.mean(), 100 * tot[:nt].mean() / fl[:nt].mean()))
+# Erratum: PUMP_1 (n54 -> T1) is an internal transfer; true inflow is p227 + p235.
+src = (d5.flows["p227"] + d5.flows["p235"]).to_numpy()
+print("true inflow p227+p235 (csv units): mean %.2f  -> leak share of inflow in train %.1f%% | whole year %.1f%%" % (src.mean(), 100 * tot[:nt].mean() / src[:nt].mean(), 100 * tot.mean() / src.mean()))
 
 print("\n== B. REPRODUCE PUBLISHED METRICS (15min) ==")
 d = quiet(load_battledim, DD, 2018, "15min")

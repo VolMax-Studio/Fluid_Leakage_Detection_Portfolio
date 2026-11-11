@@ -6,6 +6,8 @@
 
 A leak detection and sparse localization pipeline for Water Distribution Networks (WDNs), run on the **BattLeDIM L-Town benchmark** (a simulated SCADA dataset modelled on a real network in Cyprus: 33 pressure sensors, diurnal demand, gradual and abrupt leaks), with a small **C++ reference implementation** of the detector for embedded targets.
 
+> **Inflow erratum (November 2026):** The first audit used the sum of all three flow sensors as total network inflow, mistakenly including internal transfer `PUMP_1` (n54 → T1). Correct source inflow is `p227` + `p235`; corrected leak-flow shares are 12.3% for the original training window and 12.7% for full 2018. Historical v2.0.1 files are not rewritten. See [erratum](AUDIT_2026-11.md#erratum-2026-11-11-after-v201).
+
 > **Audit notice (November 2026).** A self-audit of the v2.0.0 evaluation found that its headline numbers reproduce exactly but do **not** demonstrate working leak detection or localization: the training window is not leak-free, the evaluator mixes units, the alarm state never clears, and the localization summary omitted three to four of the seven results. Details and verdicts: [`AUDIT_2026-11.md`](AUDIT_2026-11.md). The v2.0.0 numbers below are kept for reproducibility and annotated; treat this repository as a methods prototype, not a validated detector.
 
 ---
