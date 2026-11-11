@@ -1,6 +1,8 @@
-# Fluid Leakage Detection & Sparse Localization Portfolio (v2)
+# Fluid Leakage Detection & Sparse Localization Portfolio (v2.0.1 — corrective audit release)
 
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20786241.svg)](https://doi.org/10.5281/zenodo.20786241)
+[![All-version DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20786240.svg)](https://doi.org/10.5281/zenodo.20786240)
+
+**Release v2.0.1 (2026-11-11): CORRECTION / AUDIT, NOT A VALIDATED DETECTOR.** The original v2.0.0 Zenodo snapshot ([DOI 10.5281/zenodo.20786241](https://doi.org/10.5281/zenodo.20786241)) is a historical, reproducible artifact whose original performance claims have been challenged. The concept DOI above covers the linked version series; cite a **version-specific DOI** when available. See [CHANGELOG.md](CHANGELOG.md) and [AUDIT_2026-11.md](AUDIT_2026-11.md).
 
 A leak detection and sparse localization pipeline for Water Distribution Networks (WDNs), run on the **BattLeDIM L-Town benchmark** (a simulated SCADA dataset modelled on a real network in Cyprus: 33 pressure sensors, diurnal demand, gradual and abrupt leaks), with a small **C++ reference implementation** of the detector for embedded targets.
 

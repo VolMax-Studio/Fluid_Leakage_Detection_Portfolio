@@ -1,11 +1,10 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite it as below."
+message: "v2.0.1 is a corrective audit release, not a validated leak detector; cite its version-specific Zenodo DOI when published."
 authors:
   - family-names: "Nestorov"
     given-names: "Ivan"
     orcid: "https://orcid.org/0009-0006-7940-9539"
 title: "Fluid Leakage Detection and L1-Regularized Sparse Localization for WDNs"
-version: 2.0.0
-doi: "10.5281/zenodo.20786241"
-date-released: 2026-06-21
-url: "https://github.com/VolMax-Studio/Fluid_Leakage_Detection_Portfolio"
+version: 2.0.1
+date-released: 2026-11-11
+url: "https://github.com/VolMax-Studio/Fluid_Leakage_Detection_Portfolio/releases/tag/v2.0.1"
