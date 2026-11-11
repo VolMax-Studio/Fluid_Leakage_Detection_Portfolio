@@ -2,15 +2,17 @@
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20786241.svg)](https://doi.org/10.5281/zenodo.20786241)
 
-An end-to-end, high-fidelity leak detection, isolation, and sparse localization pipeline for Water Distribution Networks (WDNs). This project bridges the "reality gap" by moving from simple synthetic simulations to the international **BattLeDIM L-Town Benchmark** (SCADA sensor network with real-world noise, diurnal demand fluctuations, and multiple gradual/abrupt leak events), alongside a production-ready **C++ firmware implementation** for edge deployment.
+A leak detection and sparse localization pipeline for Water Distribution Networks (WDNs), run on the **BattLeDIM L-Town benchmark** (a simulated SCADA dataset modelled on a real network in Cyprus: 33 pressure sensors, diurnal demand, gradual and abrupt leaks), with a small **C++ reference implementation** of the detector for embedded targets.
+
+> **Audit notice (November 2026).** A self-audit of the v2.0.0 evaluation found that its headline numbers reproduce exactly but do **not** demonstrate working leak detection or localization: the training window is not leak-free, the evaluator mixes units, the alarm state never clears, and the localization summary omitted three to four of the seven results. Details and verdicts: [`AUDIT_2026-11.md`](AUDIT_2026-11.md). The v2.0.0 numbers below are kept for reproducibility and annotated; treat this repository as a methods prototype, not a validated detector.
 
 ---
 
-## 🚀 Key Achievements in v2
-- **Real Benchmark Validation**: Evaluated against the 2018 L-Town dataset (Zenodo/BattLeDIM) featuring 33 pressure sensors, 3 DMA flow inlets, and 14 historical leaks.
-- **Triple Detection Performance**: Implemented a **CUSUM (Page-Hinkley)** change-point detector on Random Forest regression residuals. Auto-tuned on leak-free training periods, CUSUM tripled the F1-score (from **0.095 to 0.28**) and dramatically increased Recall (from **0.14 to 0.36**) compared to the consecutive exceedance baseline.
-- **L1-Regularized Sparse Localization (Lasso)**: Addressed the highly underdetermined nature of localized WDN detection (33 sensors vs. 782 junctions) by formulating spatial localization as a sparse recovery problem. While localization remains highly challenging overall (median ~14 hops, with `p654` at 43 hops due to low hydraulic observability), Lasso dramatically improves accuracy where a leak is close to sensor coverage, e.g., reducing the hop distance of event `p183` **from 57 hops (WLS) down to 2 hops (Lasso)**.
-- **Embedded C++ Firmware Port**: Built a zero-allocation, O(1) memory complexity **DwtCusumEngine** in C++11, enabling real-time transient and gradual leak detection directly on low-power microcontrollers (e.g., ESP32, STM32).
+## What v2 contains
+- **Benchmark run**: The pipeline runs on the 2018 L-Town dataset (BattLeDIM, Zenodo 10.5281/zenodo.4017659): 33 pressure sensors, 3 flow sensors, 14 labelled leaks. Training and scoring both happen inside 2018; this is not the BattLeDIM task (2018 as history, 2019 as test) and the results are not comparable to the BattLeDIM leaderboard.
+- **CUSUM detector**: A one-sided CUSUM on Random Forest regression residuals, with the threshold set above the training-window maximum. Under the repository's own evaluator the score moves from F1 0.095 (consecutive exceedance) to 0.278 (CUSUM). The audit rates this **Not Demonstrated** as a performance measure: the training window is 94.5% leak-active, the evaluator scores only each sensor's first alarm and counts true positives in events but false positives in sensors, and after the training window at least one sensor is in alarm 99.9% of the time.
+- **L1-regularized sparse localization (Lasso)**: Localization over 782 junctions from 33 sensors, formulated as non-negative sparse recovery on a linearized sensitivity matrix. On the 7 leaks evaluated, no leak is in the top-5 candidates under either method; the median top-1 error is 43 hops (Lasso) and 55 hops (WLS). One leak (`p183`) goes from 57 to 2 hops; the Lasso returns the same node for three different leaks, so this single case is not evidence of an improvement.
+- **C++ reference engine**: `DwtCusumEngine` (C++11) implements the CUSUM and a Haar level-1 detail check with fixed-size state and no dynamic allocation in the engine class. It has been compiled and replayed on a desktop only; it has not been run on a microcontroller or on field data.
 
 ---
 
@@ -33,7 +35,7 @@ Discrete Wavelet Transform detail coefficients isolate high-frequency acoustic w
 $$\text{Threshold} = 3.5 \times \frac{\text{MAD}}{0.6745}$$
 
 ### 2. Machine Learning Baseline & CUSUM Sequential Detection (`src/leak_predictor.py`)
-A Random Forest Regressor models the complex diurnal demand-pressure relationships, trained on the leak-free initialization window (first 40% of the dataset). CUSUM accumulates persistent small negative deviations from this baseline:
+A Random Forest Regressor models the complex diurnal demand-pressure relationships, trained on the first 40% of the dataset. This window was assumed leak-free; on L-Town 2018 it is not (see audit notice). CUSUM accumulates persistent small negative deviations from this baseline:
 $$S_t = \max(0, S_{t-1} - z_t - k)$$
 where $z_t$ is the standardized residual, $k$ is the drift parameter (optimized at $0.5$), and the threshold $H$ is auto-tuned on training residuals with a $5\sigma$ safety margin.
 
@@ -42,24 +44,24 @@ Rather than running independent fits per node, localization solves a sparse reco
 $$\min_{\mathbf{q} \ge 0} \frac{1}{2} \|\mathbf{r} - \mathbf{S}\mathbf{q}\|_2^2 + \alpha \|\mathbf{q}\|_1$$
 where $\mathbf{r}$ is the sensor pressure residual vector, $\mathbf{S}_{33 \times 782}$ is the sensitivity matrix, and $\mathbf{q} \ge 0$ is the sparse vector of estimated junction leak flows.
 
-*Note: Sparse recovery is not a universal fix. While it provides a dramatic improvement for leaks located in well-instrumented areas (e.g., `p183` drops from 57 to 2 hops), its performance is highly sensitive to hydraulic observability and sensor density, leaving poorly instrumented areas with large errors (e.g., `p654` at 43 hops, and a median error of ~14 hops across all events).*
+*Note: on L-Town 2018 neither method localizes the evaluated leaks (median top-1 error 43 hops for Lasso, 55 for WLS; full table in `AUDIT_2026-11.md`).*
 
 ---
 
-## 📊 Performance Comparison (Real L-Town SCADA)
+## 📊 v2.0.0 numbers (L-Town 2018, repository evaluator) — see audit notice
 
 | Config ID | Detector | Localizer | Precision | Recall | F1-Score | Mean TTD | Localization Accuracy |
 | :--- | :--- | :--- | :---: | :---: | :---: | :---: | :--- |
-| **v1_baseline** | Consecutive | WLS | 0.071 | 0.143 | 0.095 | **3.1 h** | Hop Distances: `p158` (22), `p183` (57), `p369` (8) |
-| **v2_cusum_wls** | CUSUM ($k=0.5$) | WLS | **0.230** | **0.360** | **0.280** | 20.6 h | Hop Distances: `p158` (22), `p183` (57), `p369` (8) |
-| **v2_cusum_lasso**| CUSUM ($k=0.5$) | Lasso ($\alpha=10^{-4}$) | **0.230** | **0.360** | **0.280** | 20.6 h | Hop Distances: `p158` (**21**), `p183` (**2**), `p369` (8) |
+| **v1_baseline** | Consecutive | WLS | 0.071 | 0.143 | 0.095 | 3.1 h | Not independently re-evaluated (the 55-hop WLS median below uses CUSUM-triggered windows) |
+| **v2_cusum_wls** | CUSUM ($k=0.5$) | WLS | 0.227 | 0.357 | 0.278 | 20.6 h | median 55 hops (7 leaks) |
+| **v2_cusum_lasso**| CUSUM ($k=0.5$) | Lasso ($\alpha=10^{-4}$) | 0.227 | 0.357 | 0.278 | 20.6 h | median 43 hops (7 leaks) |
 
-*Note: While consecutive exceedance responds faster to large abrupt leaks, it fails completely on slow corrosion. CUSUM successfully tracks slow leaks, resulting in a slightly higher Mean Time-To-Detection (TTD) but vastly superior overall Recall.*
+*How to read this table: The 55-hop WLS and 43-hop Lasso medians were reconstructed only with the CUSUM-triggered localization windows, not the consecutive baseline. Precision = detected events / (detected events + sensors whose first alarm matched no event); Recall = detected events / 14, of which 7 start inside the training window and cannot be detected. Only the first alarm of each sensor is scored. These are the numbers the code prints, not a validated detection rate. `verified_results.json` carries the same v2.0.0 figures and omits the hop distances for `p31`, `p654` (WLS), `p810` and `p866`.*
 
 ---
 
 ## 💻 Edge C++ Implementation (`edge/`)
-Designed for low-power embedded deployment, the standalone C++ engine uses **zero dynamic memory allocations** and processes sensor signals in $O(1)$ time.
+The engine class keeps fixed-size state (no dynamic allocation) and does $O(1)$ work per sample. The replay harness (`main.cpp`) is a desktop program. The replay input `edge/sensor_test_data.csv` is derived from the BattLeDIM data and is not included in the repository, so the output below cannot be reproduced from a fresh clone.
 
 ### Build and Run Edge Simulation Replay:
 ```bash
@@ -96,6 +98,13 @@ Replaying pressure trace from: edge/sensor_test_data.csv
 pip install -r requirements.txt
 ```
 
+For `--mode real`, download the BattLeDIM CSVs and `L-TOWN.inp` (Zenodo 10.5281/zenodo.4017659) into `./battledim_data/`.
+
+### Re-run the audit
+```bash
+python scripts/audit_evaluation.py .
+```
+
 ### Run CUSUM + Lasso Pipeline on L-Town SCADA:
 ```bash
 python run_pipeline.py --mode real --resample 15min --detector cusum --cusum-drift 0.5 --localizer lasso --lasso-alpha 0.0001
@@ -121,4 +130,4 @@ Nestorov, Ivan. (2026). Fluid Leakage Detection and L1-Regularized Sparse Locali
 ---
 
 ## 📄 License
-MIT
+MIT — see [`LICENSE`](LICENSE). The BattLeDIM dataset is not part of this repository and has its own terms.

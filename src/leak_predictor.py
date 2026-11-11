@@ -145,7 +145,8 @@ class LeakPredictor:
     ) -> None:
         """
         Fit a per-sensor RF model using the first training_fraction of data
-        (assumed to be leak-free by construction in the simulation).
+        (assumed to be leak-free by construction in the synthetic simulation;
+        this does NOT hold for L-Town 2018 — see AUDIT_2026-11.md).
 
         Parameters
         ----------
@@ -334,6 +335,14 @@ class LeakPredictor:
     ) -> dict:
         """
         Compute event-level detection metrics.
+
+        KNOWN LIMITATIONS (AUDIT_2026-11.md) — kept unchanged so the published
+        v2.0.0 numbers stay reproducible:
+          * only the FIRST alarm of each sensor over the whole record is scored;
+            later alarms (and alarms that never clear) are ignored;
+          * true positives count unique EVENTS while false positives count
+            SENSORS, so precision mixes two units;
+          * events inside the training window stay in the recall denominator.
 
         An event is detected if at least one sensor alarm falls within
         [event_start, event_start + 48h]. Each event is counted at most once

@@ -95,7 +95,8 @@ def run(mode="synthetic", resample="15min", detector="consecutive", cusum_drift=
         print(f"        Sensor {ev['sensor']}: {status} (magnitude={ev['magnitude']:.3f})")
 
     # ── Step 3: RF baseline predictor ────────────────────────────
-    # For L-Town real dataset, first 40% (Jan - May) is mostly leak-free by design
+    # NOTE: for L-Town 2018 the first 40% (1 Jan - 27 May) is NOT leak-free:
+    # ~94.5% of its timestamps lie inside a labelled leak interval (see AUDIT_2026-11.md).
     print(f"\n[3/5] Training RF baseline predictor (first 40% = training)...")
     predictor = LeakPredictor(
         alarm_sigma_multiplier=2.5,
@@ -397,7 +398,8 @@ def _write_report(metrics, loc_results, mode="synthetic", detector="consecutive"
         "METHODOLOGY NOTES",
         "-" * 40,
         "  Detection: Random Forest regressor trained on first 40%",
-        "  of data (assumed leak-free). Alarm = residual < -2.5σ",
+        "  of data (assumed leak-free; this assumption is FALSE for",
+        "  L-Town 2018, see AUDIT_2026-11.md). Alarm = residual < -2.5σ",
         "  for ≥4 consecutive steps.",
         "",
         "  Localization: Linearized hydraulic sensitivity matrix",
